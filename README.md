@@ -68,6 +68,24 @@ The 25 MB ceiling is the one that will bite. It's a platform limit, not a
 setting. To go bigger you'd slice the file in the browser, upload the pieces
 separately, and reassemble them on read — a real change, not a config tweak.
 
+Worth knowing before you go chasing bigger uploads: Netlify bills bandwidth, and
+video is almost pure bandwidth. Serving a 200 MB file a thousand times is 200 GB
+of egress. If you end up hosting large videos regularly, object storage with free
+egress (Cloudflare R2) costs dramatically less than any CDN-billed host.
+
+## Getting under 25 MB
+
+**No install:** QuickTime Player (already on your Mac) → open the video →
+*File* → *Export As* → *720p*. Usually enough for screen recordings.
+
+**Exact target size:** `./shrink.sh myvideo.mov` writes `myvideo-small.mp4`
+aiming at 23 MB, or `./shrink.sh myvideo.mov 10` for 10 MB. It measures the
+duration, works out the bitrate budget, and two-pass encodes to hit it. Needs
+`ffmpeg` — the script tells you how to install it if you don't have it.
+
+Both routes re-encode to H.264 with `faststart`, which puts the file's index at
+the front so playback can begin before the whole file arrives.
+
 ## How it fits together
 
 ```
