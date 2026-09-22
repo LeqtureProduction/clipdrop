@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clip Drop</title>
+<meta name="description" content="Upload an MP4, get a link that plays it.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f4f5f8;
+    --surface: #ffffff;
+    --surface-sunk: #eceef3;
+    --ink: #161a22;
+    --ink-soft: #414957;
+    --muted: #6b7381;
+    --line: #dfe3ea;
+    --line-strong: #c6ccd7;
+    --accent: #0e6b5e;
+    --accent-ink: #ffffff;
+    --accent-wash: #e4f1ee;
+    --danger: #b5301f;
+    --danger-wash: #fbeae7;
+    --stage: #0c0f14;
+    --radius: 10px;
+    --font-ui: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101318;
+      --surface: #181c23;
+      --surface-sunk: #1f242c;
+      --ink: #eef1f5;
+      --ink-soft: #c2c9d4;
+      --muted: #8b95a4;
+      --line: #2a3039;
+      --line-strong: #3a4350;
+      --accent: #3fb8a5;
+      --accent-ink: #08211d;
+      --accent-wash: #17302d;
+      --danger: #f08272;
+      --danger-wash: #351f1c;
+      --stage: #05070a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img, video { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  .wrap {
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 28px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .brand svg { display: block; color: var(--accent); }
+
+  .masthead p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    max-width: 44ch;
+  }
+
+  /* ---------- drop zone ---------- */
+
+  .dropzone {
+    border: 1.5px dashed var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 34px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: border-color .15s, background .15s;
+  }
+
+  .dropzone.is-hot { border-color: var(--accent); background: var(--accent-wash); }
+
+  .dropzone h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+  .hint {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .dropzone input[type="file"] { display: none; }
+
+  /* ---------- controls ---------- */
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    transition: background .14s, border-color .14s, color .14s;
+  }
+
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  button[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .btn-primary {
+    margin-top: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 9px 18px;
+  }
+
+  .btn-primary:hover:not([disabled]) { filter: brightness(1.08); }
+
+  .btn-quiet {
+    background: var(--surface);
+    border-color: var(--line-strong);
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+  }
+
+  .btn-quiet:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+  .btn-danger:hover:not([disabled]) { border-color: var(--danger); color: var(--danger); }
+
+  /* ---------- passphrase ---------- */
+
+  .keybar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .keybar label { font-weight: 500; }
+
+  .keybar input {
+    flex: 1 1 180px;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    padding: 7px 10px;
+  }
+
+  /* ---------- status ---------- */
+
+  .status {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13.5px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+  }
+
+  .status.is-working { border-color: var(--accent); background: var(--accent-wash); color: var(--ink); }
+  .status.is-error { border-color: var(--danger); background: var(--danger-wash); color: var(--ink); }
+  .status strong { font-weight: 600; }
+  .status .mono { font-family: var(--font-mono); font-size: 12px; }
+
+  .bar {
+    margin-top: 8px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--surface-sunk);
+    overflow: hidden;
+  }
+
+  .bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    width: 0;
+    transition: width .2s;
+  }
+
+  /* ---------- library ---------- */
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .count {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .row:first-child { border-top: 0; }
+
+  .row-open {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    color: inherit;
+  }
+
+  .thumb {
+    flex: none;
+    width: 46px;
+    height: 34px;
+    border-radius: 6px;
+    background: var(--stage);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+
+  .row-open:hover .thumb { background: var(--accent); color: var(--accent-ink); }
+  .row-text { min-width: 0; }
+
+  .row-name {
+    font-weight: 500;
+    font-size: 14.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row-open:hover .row-name { color: var(--accent); }
+
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row-actions { flex: none; display: flex; gap: 6px; }
+
+  .empty {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  .empty .hint { margin-top: 6px; }
+
+  /* ---------- player ---------- */
+
+  .back {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .back:hover { color: var(--accent); }
+
+  .stage {
+    background: var(--stage);
+    border-radius: var(--radius);
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+    display: grid;
+    place-items: center;
+  }
+
+  .stage video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .stage .gone { color: #9aa4b2; font-size: 13.5px; padding: 20px; text-align: center; }
+
+  .player-title {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+
+  .links {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .sharebar {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 6px 10px;
+    align-items: center;
+    padding: 11px 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .sharebar:first-child { border-top: 0; }
+
+  .sharebar label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sharebar input {
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 9px;
+  }
+
+  .sharebar .help {
+    grid-column: 2 / -1;
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  @media (max-width: 520px) {
+    .row { flex-wrap: wrap; }
+    .row-actions { width: 100%; justify-content: flex-end; }
+  }
+
+  @media (max-width: 460px) {
+    .sharebar { grid-template-columns: 1fr auto; }
+    .sharebar label, .sharebar .help { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <a class="brand" href="/">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="4" width="20" height="16" rx="3"></rect>
+        <path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"></path>
+      </svg>
+      Clip Drop
+    </a>
+    <p>Upload an MP4, get a link that plays it.</p>
+  </header>
+
+  <main id="view" class="stack"></main>
+</div>
+
+<script>
+"use strict";
+
+var MAX_BYTES = 25 * 1024 * 1024;
+var ACCEPTED = { mp4: "video/mp4", m4v: "video/mp4", webm: "video/webm", mov: "video/quicktime" };
+var KEY_STORE = "clipdrop.key";
+
+var view = document.getElementById("view");
+var clips = [];
+var loaded = false;
+var busy = false;
+var progress = 0;
+var notice = null;
+
+/* ---------- small helpers ---------- */
+
+function el(tag, cls, text) {
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function readKey() {
+  try { return localStorage.getItem(KEY_STORE) || ""; } catch (e) { return ""; }
+}
+
+function writeKey(v) {
+  try { localStorage.setItem(KEY_STORE, v); } catch (e) { /* private window */ }
+}
+
+function fmtBytes(n) {
+  if (typeof n !== "number" || !isFinite(n) || n < 0) return "—";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function fmtDuration(s) {
+  if (typeof s !== "number" || !isFinite(s) || s <= 0) return null;
+  var t = Math.round(s), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  var pad = function (v) { return v < 10 ? "0" + v : String(v); };
+  return h > 0 ? h + ":" + pad(m) + ":" + pad(sec) : m + ":" + pad(sec);
+}
+
+function fmtDate(iso) {
+  var d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function metaLine(clip) {
+  var bits = [];
+  var dur = fmtDuration(clip.duration);
+  if (dur) bits.push(dur);
+  if (clip.width && clip.height) bits.push(clip.width + "×" + clip.height);
+  bits.push(fmtBytes(clip.size));
+  var when = fmtDate(clip.uploadedAt);
+  if (when) bits.push(when);
+  return bits.join("  ·  ");
+}
+
+function extOf(name) {
+  var m = /\.([a-z0-9]+)$/i.exec(name || "");
+  return m ? m[1].toLowerCase() : "";
+}
+
+function pageLink(id) { return location.origin + "/watch/" + id; }
+function fileLink(id) { return location.origin + "/v/" + id; }
+
+/* ---------- routing ---------- */
+
+function currentId() {
+  var m = /^\/watch\/([a-f0-9]{24})\/?$/.exec(location.pathname);
+  return m ? m[1] : null;
+}
+
+function go(path) {
+  history.pushState(null, "", path);
+  render();
+}
+
+window.addEventListener("popstate", render);
+
+document.addEventListener("click", function (e) {
+  var a = e.target.closest ? e.target.closest("a") : null;
+  if (!a) return;
+  if (a.origin !== location.origin) return;
+  if (a.getAttribute("target")) return;
+  if (!/^\/(watch\/|$)/.test(a.pathname)) return;
+  e.preventDefault();
+  go(a.pathname);
+});
+
+/* ---------- render ---------- */
+
+function setNotice(kind, title, detail) {
+  notice = kind ? { kind: kind, title: title, detail: detail } : null;
+  render();
+}
+
+function render() {
+  view.textContent = "";
+  var id = currentId();
+  if (id) renderPlayer(id);
+  else renderLibrary();
+}
+
+function renderNotice(into) {
+  if (!notice) return;
+  var box = el("div", "status is-" + notice.kind);
+  var body = el("div");
+  body.style.flex = "1";
+  body.appendChild(el("strong", null, notice.title));
+  if (notice.detail) {
+    body.appendChild(document.createTextNode(" "));
+    body.appendChild(el("span", "mono", notice.detail));
+  }
+  if (notice.kind === "working") {
+    var bar = el("div", "bar");
+    var fill = el("span");
+    fill.style.width = Math.round(progress * 100) + "%";
+    bar.appendChild(fill);
+    body.appendChild(bar);
+  }
+  box.appendChild(body);
+  into.appendChild(box);
+}
+
+function renderLibrary() {
+  view.appendChild(buildDropzone());
+  view.appendChild(buildKeybar());
+  renderNotice(view);
+
+  var section = el("section");
+  var head = el("div", "section-head");
+  head.appendChild(el("h2", null, "Library"));
+  if (clips.length) head.appendChild(el("span", "count", clips.length + (clips.length === 1 ? " clip" : " clips")));
+  section.appendChild(head);
+
+  if (!loaded) {
+    section.appendChild(el("div", "empty", "Loading…"));
+  } else if (!clips.length) {
+    var blank = el("div", "empty", "No clips yet.");
+    blank.appendChild(el("p", "hint", "mp4 · webm · mov · up to 25 MB each"));
+    section.appendChild(blank);
+  } else {
+    var list = el("ul", "rows");
+    clips.forEach(function (c) { list.appendChild(buildRow(c)); });
+    section.appendChild(list);
+  }
+
+  view.appendChild(section);
+}
+
+var ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"></path></svg>';
+
+function buildRow(clip) {
+  var li = el("li", "row");
+
+  var open = el("button", "row-open");
+  open.type = "button";
+  var thumb = el("div", "thumb");
+  thumb.innerHTML = ICON_PLAY;
+  open.appendChild(thumb);
+  var text = el("div", "row-text");
+  text.appendChild(el("div", "row-name", clip.name || "Untitled clip"));
+  text.appendChild(el("div", "meta", metaLine(clip)));
+  open.appendChild(text);
+  open.addEventListener("click", function () { go("/watch/" + clip.id); });
+  li.appendChild(open);
+
+  var actions = el("div", "row-actions");
+  var copy = el("button", "btn-quiet", "Copy link");
+  copy.type = "button";
+  copy.addEventListener("click", function () { copyText(pageLink(clip.id), copy, "Copy link"); });
+  actions.appendChild(copy);
+
+  var del = el("button", "btn-quiet btn-danger", "Delete");
+  del.type = "button";
+  del.addEventListener("click", function () { removeClip(clip, del); });
+  actions.appendChild(del);
+
+  li.appendChild(actions);
+  return li;
+}
+
+function renderPlayer(id) {
+  var back = el("a", "back");
+  back.href = "/";
+  back.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>';
+  back.appendChild(document.createTextNode("All clips"));
+  view.appendChild(back);
+
+  var clip = null;
+  for (var i = 0; i < clips.length; i++) if (clips[i].id === id) clip = clips[i];
+
+  var stage = el("div", "stage");
+  var v = document.createElement("video");
+  v.controls = true;
+  v.playsInline = true;
+  v.preload = "metadata";
+  v.src = fileLink(id);
+  v.addEventListener("error", function () {
+    stage.textContent = "";
+    stage.appendChild(el("div", "gone", "That link doesn't point at a clip on this site."));
+  });
+  stage.appendChild(v);
+  view.appendChild(stage);
+
+  view.appendChild(el("h1", "player-title", (clip && clip.name) || "Clip"));
+  if (clip) view.appendChild(el("div", "meta", metaLine(clip)));
+
+  var links = el("div", "links");
+  links.appendChild(linkRow("share-page", "Page", pageLink(id), "This player page — anyone with the link, no sign-in."));
+  links.appendChild(linkRow("share-file", "File", fileLink(id), "The MP4 itself — plays in any browser tab."));
+  view.appendChild(links);
+}
+
+function linkRow(id, label, value, help) {
+  var bar = el("div", "sharebar");
+  var lab = el("label", null, label);
+  lab.setAttribute("for", id);
+  bar.appendChild(lab);
+
+  var input = document.createElement("input");
+  input.id = id;
+  input.readOnly = true;
+  input.value = value;
+  input.addEventListener("focus", function () { input.select(); });
+  bar.appendChild(input);
+
+  var copy = el("button", "btn-quiet", "Copy");
+  copy.type = "button";
+  copy.addEventListener("click", function () { copyText(input.value, copy, "Copy"); });
+  bar.appendChild(copy);
+
+  bar.appendChild(el("p", "help", help));
+  return bar;
+}
+
+function buildKeybar() {
+  var bar = el("div", "keybar");
+  var lab = el("label", null, "Upload passphrase");
+  lab.setAttribute("for", "upload-key");
+  bar.appendChild(lab);
+
+  var input = document.createElement("input");
+  input.id = "upload-key";
+  input.type = "password";
+  input.autocomplete = "off";
+  input.placeholder = "only needed if the site sets one";
+  input.value = readKey();
+  input.addEventListener("change", function () { writeKey(input.value); });
+  bar.appendChild(input);
+
+  return bar;
+}
+
+function buildDropzone() {
+  var zone = el("div", "dropzone");
+  var input = document.createElement("input");
+  input.type = "file";
+  input.id = "clip-file";
+  input.accept = "video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov";
+
+  zone.appendChild(el("h2", null, busy ? "Uploading…" : "Drop a video here"));
+  zone.appendChild(el("p", "hint", "mp4 · webm · mov · up to 25 MB"));
+
+  var pick = el("button", "btn-primary", "Choose a file");
+  pick.type = "button";
+  pick.disabled = busy;
+  pick.addEventListener("click", function () { input.click(); });
+  zone.appendChild(pick);
+  zone.appendChild(input);
+
+  input.addEventListener("change", function () {
+    if (input.files && input.files[0]) handleFile(input.files[0]);
+    input.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach(function (evt) {
+    zone.addEventListener(evt, function (e) { e.preventDefault(); zone.classList.add("is-hot"); });
+  });
+  ["dragleave", "dragend"].forEach(function (evt) {
+    zone.addEventListener(evt, function () { zone.classList.remove("is-hot"); });
+  });
+  zone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    zone.classList.remove("is-hot");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  return zone;
+}
+
+function copyText(text, btn, restore) {
+  var done = function (ok) {
+    btn.textContent = ok ? "Copied" : "Press ⌘C";
+    setTimeout(function () { btn.textContent = restore; }, 1600);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+  } else {
+    done(false);
+  }
+}
+
+/* ---------- read local metadata before sending ---------- */
+
+function probe(file) {
+  return new Promise(function (resolve) {
+    var url = URL.createObjectURL(file);
+    var v = document.createElement("video");
+    var settled = false;
+    var finish = function (info) {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      resolve(info);
+    };
+    v.preload = "metadata";
+    v.addEventListener("loadedmetadata", function () {
+      finish({
+        duration: isFinite(v.duration) ? v.duration : null,
+        width: v.videoWidth || null,
+        height: v.videoHeight || null
+      });
+    });
+    v.addEventListener("error", function () { finish({}); });
+    setTimeout(function () { finish({}); }, 6000);
+    v.src = url;
+  });
+}
+
+/* ---------- upload ---------- */
+
+function send(file, type, info) {
+  return new Promise(function (resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.setRequestHeader("content-type", "application/octet-stream");
+    xhr.setRequestHeader("x-file-name", encodeURIComponent(file.name));
+    xhr.setRequestHeader("x-file-type", type);
+    xhr.setRequestHeader("x-file-size", String(file.size));
+    if (info.duration) xhr.setRequestHeader("x-duration", String(Math.round(info.duration)));
+    if (info.width) xhr.setRequestHeader("x-width", String(info.width));
+    if (info.height) xhr.setRequestHeader("x-height", String(info.height));
+    var key = readKey();
+    if (key) xhr.setRequestHeader("x-upload-key", key);
+
+    xhr.upload.addEventListener("progress", function (e) {
+      if (e.lengthComputable) {
+        progress = e.loaded / e.total;
+        render();
+      }
+    });
+
+    xhr.addEventListener("load", function () {
+      var body = {};
+      try { body = JSON.parse(xhr.responseText || "{}"); } catch (e) { /* non-JSON */ }
+      if (xhr.status >= 200 && xhr.status < 300 && body.id) resolve(body);
+      else reject(new Error(body.error || ("Upload failed (" + xhr.status + ").")));
+    });
+
+    xhr.addEventListener("error", function () { reject(new Error("Couldn't reach the server.")); });
+    xhr.addEventListener("abort", function () { reject(new Error("Upload cancelled.")); });
+
+    xhr.send(file);
+  });
+}
+
+async function handleFile(file) {
+  if (busy) return;
+
+  var type = ACCEPTED[extOf(file.name)] || (/^video\//.test(file.type) ? file.type : null);
+  if (!type || !(type === "video/mp4" || type === "video/webm" || type === "video/quicktime")) {
+    setNotice("error", "That isn't a supported video.", "Use .mp4, .webm or .mov");
+    return;
+  }
+  if (file.size > MAX_BYTES) {
+    setNotice("error", "That file is too big.", fmtBytes(file.size) + " — the limit is 25.0 MB");
+    return;
+  }
+
+  busy = true;
+  progress = 0;
+  setNotice("working", "Uploading " + file.name, fmtBytes(file.size));
+
+  try {
+    var info = await probe(file);
+    var res = await send(file, type, info);
+    busy = false;
+    notice = null;
+    await load();
+    go("/watch/" + res.id);
+  } catch (err) {
+    busy = false;
+    setNotice("error", "Upload failed.", err.message);
+  }
+}
+
+async function removeClip(clip, btn) {
+  if (!window.confirm("Delete “" + (clip.name || "this clip") + "”? The link will stop working for everyone.")) return;
+  btn.disabled = true;
+  btn.textContent = "Deleting…";
+  try {
+    var key = readKey();
+    var res = await fetch("/api/clips?id=" + encodeURIComponent(clip.id), {
+      method: "DELETE",
+      headers: key ? { "x-upload-key": key } : {}
+    });
+    var body = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(body.error || "Delete failed.");
+    notice = null;
+    await load();
+  } catch (err) {
+    setNotice("error", "Couldn't delete that clip.", err.message);
+  }
+}
+
+/* ---------- boot ---------- */
+
+async function load() {
+  try {
+    var res = await fetch("/api/clips", { headers: { accept: "application/json" } });
+    var body = await res.json();
+    clips = Array.isArray(body.clips) ? body.clips : [];
+    loaded = true;
+    render();
+  } catch (err) {
+    loaded = true;
+    setNotice("error", "Couldn't load the library.", "Reload the page to try again.");
+  }
+}
+
+render();
+load();
+</script>
+</body>
+</html>

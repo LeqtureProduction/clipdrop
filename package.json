@@ -1,0 +1,10 @@
+{
+  "name": "clip-drop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Upload an MP4, get a public link that plays it.",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.0"
+  }
+}

@@ -1,0 +1,19 @@
+[build]
+  publish = "public"
+  # No build command: the page is plain HTML and the edge functions deploy
+  # from netlify/edge-functions as-is. Netlify still runs the dependency
+  # install for package.json before deploying, which is what pulls in
+  # @netlify/blobs.
+
+# Every /watch/<id> URL serves the same page, which reads the id from the
+# path. Declared after nothing else so it never shadows /api or /v, which
+# are claimed by edge functions.
+[[redirects]]
+  from = "/watch/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    cache-control = "no-cache"
