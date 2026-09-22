@@ -59,6 +59,25 @@ functions pick it up.
 Both player surfaces loop. `/v/<id>` also autoplays, which browsers only permit
 while muted, so it starts silent and unmutes on your first click or keypress.
 
+### Embedding a looping clip in another page
+
+```html
+<iframe src="https://your-site.netlify.app/v/<id>"
+        allow="autoplay" allowfullscreen
+        style="width:100%;aspect-ratio:16/9;border:0"></iframe>
+```
+
+The iframe gets the looping player, not the bare file — `/v/<id>` serves the
+page to anything framing it, and the file only to a `<video>` tag or a download.
+Keep `allow="autoplay"`: muted autoplay usually survives without it, but some
+browsers won't start a framed video unless the parent grants it.
+
+To use your own player instead, point a `<video>` at the file directly:
+
+```html
+<video src="https://your-site.netlify.app/v/<id>?raw=1" loop autoplay muted playsinline></video>
+```
+
 Viewers need nothing. No account, no sign-in.
 
 ## Limits

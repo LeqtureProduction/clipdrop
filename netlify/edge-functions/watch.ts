@@ -54,15 +54,20 @@ export default async (request: Request): Promise<Response> => {
 
   const store = getStore("clips");
 
-  /* Opening the link in a tab is a navigation; a <video> tag, a download or a
-     media player is not. Sec-Fetch-Dest says which directly, and the Accept
-     header is the fallback for clients that don't send it. ?raw=1 always wins,
-     so the URL is still usable as a plain file. */
+  /* Serve the player page anywhere a browser is rendering this URL as a page —
+     a tab, an iframe, an <embed>. Sec-Fetch-Dest names the context: "document"
+     for a top-level navigation, "iframe" for a framed one, "video" when a
+     <video> tag is pulling the bytes. Only the last of those wants the file.
+     The Accept header is the fallback for clients that send no Sec-Fetch-Dest,
+     and ?raw=1 always wins, so the URL stays usable as a plain file. */
+  const PAGE_DESTS = ["document", "iframe", "frame", "embed", "object"];
   const dest = request.headers.get("sec-fetch-dest") || "";
   const accept = request.headers.get("accept") || "";
-  const isNavigation = dest === "document" || (!dest && accept.includes("text/html"));
+  const wantsPage = dest
+    ? PAGE_DESTS.includes(dest)
+    : accept.includes("text/html");
 
-  if (isNavigation && !url.searchParams.has("raw")) {
+  if (wantsPage && !url.searchParams.has("raw")) {
     // Metadata only — don't pull the whole video down just to render a page.
     const found = await store.getMetadata(`video/${id}`);
     if (!found) return new Response("Not found", { status: 404 });
