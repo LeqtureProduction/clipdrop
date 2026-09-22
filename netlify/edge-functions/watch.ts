@@ -3,19 +3,82 @@ import type { Config } from "@netlify/edge-functions";
 
 const ID = /^[a-f0-9]{24}$/;
 
-/* Serves the stored video. Range support is what makes the scrubber work:
-   without it browsers can play the file but not seek within it. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
+/* A bare, full-bleed looping player. Served when someone opens /v/<id> in a
+   browser tab; the bytes themselves stay at the same URL under ?raw=1. */
+function loopPage(id: string, name: string): string {
+  const title = escapeHtml(name || "Clip");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${title}</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #05070a; }
+  body { display: grid; place-items: center; }
+  video { width: 100%; height: 100%; object-fit: contain; display: block; }
+</style>
+</head>
+<body>
+<video src="/v/${id}?raw=1" loop autoplay muted playsinline controls></video>
+<script>
+  // Autoplay is only permitted while muted. Unmute on the first real
+  // interaction so a clip with a soundtrack isn't silent forever.
+  var v = document.querySelector("video");
+  var wake = function () {
+    v.muted = false;
+    window.removeEventListener("pointerdown", wake);
+    window.removeEventListener("keydown", wake);
+  };
+  window.addEventListener("pointerdown", wake);
+  window.addEventListener("keydown", wake);
+</script>
+</body>
+</html>`;
+}
+
 export default async (request: Request): Promise<Response> => {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const id = new URL(request.url).pathname.split("/").filter(Boolean).pop() || "";
+  const url = new URL(request.url);
+  const id = url.pathname.split("/").filter(Boolean).pop() || "";
   if (!ID.test(id)) return new Response("Not found", { status: 404 });
 
-  const found = await getStore("clips").getWithMetadata(`video/${id}`, {
-    type: "arrayBuffer",
-  });
+  const store = getStore("clips");
+
+  /* Opening the link in a tab is a navigation; a <video> tag, a download or a
+     media player is not. Sec-Fetch-Dest says which directly, and the Accept
+     header is the fallback for clients that don't send it. ?raw=1 always wins,
+     so the URL is still usable as a plain file. */
+  const dest = request.headers.get("sec-fetch-dest") || "";
+  const accept = request.headers.get("accept") || "";
+  const isNavigation = dest === "document" || (!dest && accept.includes("text/html"));
+
+  if (isNavigation && !url.searchParams.has("raw")) {
+    // Metadata only — don't pull the whole video down just to render a page.
+    const found = await store.getMetadata(`video/${id}`);
+    if (!found) return new Response("Not found", { status: 404 });
+
+    const meta = (found.metadata ?? {}) as Record<string, unknown>;
+    const html = loopPage(id, String(meta.name ?? "Clip"));
+
+    return new Response(request.method === "HEAD" ? null : html, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+      },
+    });
+  }
+
+  const found = await store.getWithMetadata(`video/${id}`, { type: "arrayBuffer" });
   if (!found) return new Response("Not found", { status: 404 });
 
   const buf = found.data as ArrayBuffer;

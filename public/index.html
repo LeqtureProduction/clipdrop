@@ -521,6 +521,10 @@ function extOf(name) {
 function pageLink(id) { return location.origin + "/watch/" + id; }
 function fileLink(id) { return location.origin + "/v/" + id; }
 
+/* Ask for the bytes explicitly rather than relying on the server reading our
+   request headers — this src must never resolve to the loop page. */
+function rawLink(id) { return location.origin + "/v/" + id + "?raw=1"; }
+
 /* ---------- routing ---------- */
 
 function currentId() {
@@ -654,7 +658,7 @@ function renderPlayer(id) {
   v.playsInline = true;
   v.loop = true;
   v.preload = "metadata";
-  v.src = fileLink(id);
+  v.src = rawLink(id);
   v.addEventListener("error", function () {
     stage.textContent = "";
     stage.appendChild(el("div", "gone", "That link doesn't point at a clip on this site."));
@@ -667,7 +671,7 @@ function renderPlayer(id) {
 
   var links = el("div", "links");
   links.appendChild(linkRow("share-page", "Page", pageLink(id), "This player page — anyone with the link, no sign-in."));
-  links.appendChild(linkRow("share-file", "File", fileLink(id), "The MP4 itself — plays in any browser tab."));
+  links.appendChild(linkRow("share-file", "File", fileLink(id), "Opens as a bare looping player. Add ?raw=1 for the plain MP4."));
   view.appendChild(links);
 }
 

@@ -50,9 +50,14 @@ functions pick it up.
 
 - `/` — drop a video, see everything uploaded so far. Enter the passphrase once;
   it's remembered in your browser.
-- `/watch/<id>` — the player page. This is the link to hand out.
-- `/v/<id>` — the raw video file. Plays in any browser tab, works in an
-  `<video>` tag on another site.
+- `/watch/<id>` — the player page, with the title, file details and both links.
+- `/v/<id>` — the video on its own. Opened in a browser tab it's a bare,
+  full-bleed looping player with no chrome around it. Referenced from a
+  `<video>` tag, fetched, or downloaded, it's the plain MP4.
+- `/v/<id>?raw=1` — always the plain MP4, never the player page.
+
+Both player surfaces loop. `/v/<id>` also autoplays, which browsers only permit
+while muted, so it starts silent and unmutes on your first click or keypress.
 
 Viewers need nothing. No account, no sign-in.
 
