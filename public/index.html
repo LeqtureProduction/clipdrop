@@ -652,6 +652,7 @@ function renderPlayer(id) {
   var v = document.createElement("video");
   v.controls = true;
   v.playsInline = true;
+  v.loop = true;
   v.preload = "metadata";
   v.src = fileLink(id);
   v.addEventListener("error", function () {
